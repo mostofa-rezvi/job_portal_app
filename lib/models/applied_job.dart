@@ -1,13 +1,13 @@
 class AppliedJob {
-  int? id; // Primary key for SQLite
+  int? id;
   final int userId;
-  final String jobId; // Corresponds to API job ID (e.g., job.id.toString())
+  final String jobId;
   final String jobTitle;
   final String companyName;
   final String jobLocation;
   final String salary;
   final String appliedDate;
-  final String? imageUrl; // Optional, to display in profile
+  final String? imageUrl;
 
   AppliedJob({
     this.id,

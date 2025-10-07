@@ -17,8 +17,9 @@ class DatabaseHelper {
   }
 
   Future<Database> _initDb() async {
-    String path = await getDatabasesPath();
-    String dbPath = join(path, 'job_portal.db');
+    final dbPath = join(await getDatabasesPath(), 'job_portal.db');
+    print('Database path: $dbPath');
+
     return await openDatabase(
       dbPath,
       version: 1,
@@ -27,14 +28,16 @@ class DatabaseHelper {
   }
 
   Future<void> _onCreate(Database db, int version) async {
+    print('Creating tables...');
     await db.execute('''
       CREATE TABLE users(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL, -- Added NOT NULL for robustness
-        email TEXT UNIQUE NOT NULL,    -- Added NOT NULL for robustness
-        password TEXT NOT NULL         -- Added NOT NULL for robustness
+        username TEXT UNIQUE NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL
       )
     ''');
+
     await db.execute('''
       CREATE TABLE applied_jobs(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,9 +49,10 @@ class DatabaseHelper {
         salary TEXT,
         appliedDate TEXT,
         imageUrl TEXT,
-        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE -- Added ON DELETE CASCADE
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
       )
     ''');
+
     await db.execute('''
       CREATE TABLE saved_jobs(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -59,28 +63,39 @@ class DatabaseHelper {
         jobLocation TEXT,
         salary TEXT,
         imageUrl TEXT,
-        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE -- Added ON DELETE CASCADE
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
       )
     ''');
+    print('Tables created successfully.');
   }
 
-  // --- User Operations ---
   Future<int> insertUser(User user) async {
-    Database db = await database;
+    final db = await database;
     try {
-      Map<String, dynamic> userMap = user.toMap();
-      userMap.remove('id'); // Remove id for insertion
-      return await db.insert('users', userMap);
+      final existing = await db.query(
+        'users',
+        where: 'email = ? OR username = ?',
+        whereArgs: [user.email, user.username],
+      );
+      if (existing.isNotEmpty) {
+        print('User already exists with same email or username.');
+        return 0;
+      }
+      return await db.insert('users', {
+        'username': user.username,
+        'email': user.email,
+        'password': user.password,
+      });
     } catch (e) {
       print('Error inserting user: $e');
-      return -1; // Indicate failure
+      return -1;
     }
   }
 
   Future<User?> getUserByEmail(String email) async {
-    Database db = await database;
+    final db = await database;
     try {
-      List<Map<String, dynamic>> maps = await db.query(
+      final maps = await db.query(
         'users',
         where: 'email = ?',
         whereArgs: [email],
@@ -95,31 +110,13 @@ class DatabaseHelper {
     }
   }
 
-  Future<User?> getUserByUsername(String username) async {
-    Database db = await database;
+  Future<User?> loginUser(String emailOrUsername, String password) async {
+    final db = await database;
     try {
-      List<Map<String, dynamic>> maps = await db.query(
+      final maps = await db.query(
         'users',
-        where: 'username = ?',
-        whereArgs: [username],
-      );
-      if (maps.isNotEmpty) {
-        return User.fromMap(maps.first);
-      }
-      return null;
-    } catch (e) {
-      print('Error getting user by username: $e');
-      return null;
-    }
-  }
-
-  Future<User?> loginUser(String email, String password) async {
-    Database db = await database;
-    try {
-      List<Map<String, dynamic>> maps = await db.query(
-        'users',
-        where: 'email = ? AND password = ?',
-        whereArgs: [email, password],
+        where: '(email = ? OR username = ?) AND password = ?',
+        whereArgs: [emailOrUsername, emailOrUsername, password],
       );
       if (maps.isNotEmpty) {
         return User.fromMap(maps.first);
@@ -131,19 +128,15 @@ class DatabaseHelper {
     }
   }
 
-  // --- Applied Jobs Operations ---
   Future<int> insertAppliedJob(AppliedJob job) async {
-    Database db = await database;
+    final db = await database;
     try {
-      // Check if the job is already applied by this user to prevent duplicate entries
-      List<Map<String, dynamic>> existing = await db.query(
+      final existing = await db.query(
         'applied_jobs',
         where: 'userId = ? AND jobId = ?',
         whereArgs: [job.userId, job.jobId],
       );
-      if (existing.isNotEmpty) {
-        return 0; // Indicate that it was not inserted (already exists)
-      }
+      if (existing.isNotEmpty) return 0;
       return await db.insert('applied_jobs', job.toMap());
     } catch (e) {
       print('Error inserting applied job: $e');
@@ -152,51 +145,30 @@ class DatabaseHelper {
   }
 
   Future<List<AppliedJob>> getAppliedJobs(int userId) async {
-    Database db = await database;
+    final db = await database;
     try {
-      List<Map<String, dynamic>> maps = await db.query(
-          'applied_jobs',
-          where: 'userId = ?',
-          whereArgs: [userId],
-          orderBy: 'appliedDate DESC'
+      final maps = await db.query(
+        'applied_jobs',
+        where: 'userId = ?',
+        whereArgs: [userId],
+        orderBy: 'appliedDate DESC',
       );
-      return List.generate(maps.length, (i) {
-        return AppliedJob.fromMap(maps[i]);
-      });
+      return List.generate(maps.length, (i) => AppliedJob.fromMap(maps[i]));
     } catch (e) {
       print('Error getting applied jobs: $e');
       return [];
     }
   }
 
-  Future<bool> isJobApplied(int userId, String jobId) async {
-    Database db = await database;
-    try {
-      List<Map<String, dynamic>> maps = await db.query(
-        'applied_jobs',
-        where: 'userId = ? AND jobId = ?',
-        whereArgs: [userId, jobId],
-      );
-      return maps.isNotEmpty;
-    } catch (e) {
-      print('Error checking if job is applied: $e');
-      return false;
-    }
-  }
-
-  // --- Saved Jobs Operations ---
   Future<int> insertSavedJob(Map<String, dynamic> jobData) async {
-    Database db = await database;
+    final db = await database;
     try {
-      // Check if the job is already saved by this user
-      List<Map<String, dynamic>> existing = await db.query(
+      final existing = await db.query(
         'saved_jobs',
         where: 'userId = ? AND jobId = ?',
         whereArgs: [jobData['userId'], jobData['jobId']],
       );
-      if (existing.isNotEmpty) {
-        return 0; // Indicate that it was not inserted (already exists)
-      }
+      if (existing.isNotEmpty) return 0;
       return await db.insert('saved_jobs', jobData);
     } catch (e) {
       print('Error inserting saved job: $e');
@@ -205,24 +177,37 @@ class DatabaseHelper {
   }
 
   Future<List<Map<String, dynamic>>> getSavedJobs(int userId) async {
-    Database db = await database;
+    final db = await database;
     try {
-      List<Map<String, dynamic>> maps = await db.query(
+      return await db.query(
         'saved_jobs',
         where: 'userId = ?',
         whereArgs: [userId],
       );
-      return maps;
     } catch (e) {
       print('Error getting saved jobs: $e');
       return [];
     }
   }
 
-  Future<bool> isJobSaved(int userId, String jobId) async {
-    Database db = await database;
+  Future<int> deleteSavedJob(int userId, String jobId) async {
+    final db = await database;
     try {
-      List<Map<String, dynamic>> maps = await db.query(
+      return await db.delete(
+        'saved_jobs',
+        where: 'userId = ? AND jobId = ?',
+        whereArgs: [userId, jobId],
+      );
+    } catch (e) {
+      print('Error deleting saved job: $e');
+      return 0;
+    }
+  }
+
+  Future<bool> isJobSaved(int userId, String jobId) async {
+    final db = await database;
+    try {
+      final maps = await db.query(
         'saved_jobs',
         where: 'userId = ? AND jobId = ?',
         whereArgs: [userId, jobId],
@@ -234,17 +219,18 @@ class DatabaseHelper {
     }
   }
 
-  Future<int> deleteSavedJob(int userId, String jobId) async {
-    Database db = await database;
+  Future<bool> isJobApplied(int userId, String jobId) async {
+    final db = await database;
     try {
-      return await db.delete(
-        'saved_jobs',
+      final maps = await db.query(
+        'applied_jobs',
         where: 'userId = ? AND jobId = ?',
         whereArgs: [userId, jobId],
       );
+      return maps.isNotEmpty;
     } catch (e) {
-      print('Error deleting saved job: $e');
-      return 0; // Indicate failure
+      print('Error checking if job is applied: $e');
+      return false;
     }
   }
 }

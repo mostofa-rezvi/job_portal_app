@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:project/database/database_helper.dart';
+import 'package:project/services/shared_preference_service.dart';
 import 'package:project/models/applied_job.dart';
 import 'package:project/pages/job_details/job_details_page.dart';
 import 'package:project/widgets/profile_list_item.dart';
 
 class AppliedJobsPage extends StatefulWidget {
   final int userId;
-
   const AppliedJobsPage({super.key, required this.userId});
 
   @override
@@ -15,7 +14,7 @@ class AppliedJobsPage extends StatefulWidget {
 
 class _AppliedJobsPageState extends State<AppliedJobsPage> {
   late Future<List<AppliedJob>> _appliedJobsFuture;
-  final DatabaseHelper _dbHelper = DatabaseHelper();
+  final SharedPreferenceService _prefsService = SharedPreferenceService();
 
   @override
   void initState() {
@@ -25,7 +24,7 @@ class _AppliedJobsPageState extends State<AppliedJobsPage> {
 
   void _loadAppliedJobs() {
     setState(() {
-      _appliedJobsFuture = _dbHelper.getAppliedJobs(widget.userId);
+      _appliedJobsFuture = _prefsService.getAppliedJobs(widget.userId);
     });
   }
 
@@ -43,24 +42,33 @@ class _AppliedJobsPageState extends State<AppliedJobsPage> {
           } else if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No applied jobs found.'));
+            return const Center(
+              child: Text(
+                'You have not applied for any jobs yet.',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            );
           } else {
             return ListView.builder(
+              padding: const EdgeInsets.all(8.0),
               itemCount: snapshot.data!.length,
               itemBuilder: (context, index) {
                 final appliedJob = snapshot.data![index];
-                return ProfileListItem(
-                  title: appliedJob.jobTitle,
-                  subtitle: '${appliedJob.companyName} - Applied on ${appliedJob.appliedDate}',
-                  imageUrl: appliedJob.imageUrl ?? 'https://via.placeholder.com/150',
-                  onTap: () {
-                    // Navigate to job details or show applied details
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => JobDetailsPage(jobId: int.parse(appliedJob.jobId)),
-                      ),
-                    );
-                  },
+                return Card(
+                  elevation: 2.0,
+                  margin: const EdgeInsets.symmetric(vertical: 6.0),
+                  child: ProfileListItem(
+                    title: appliedJob.jobTitle ?? 'No Title Provided',
+                    subtitle: '${appliedJob.companyName ?? 'N/A'} - Applied on ${appliedJob.appliedDate}',
+                    imageUrl: appliedJob.imageUrl ?? 'https://via.placeholder.com/150?text=No+Image',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => JobDetailsPage(jobId: int.parse(appliedJob.jobId)),
+                        ),
+                      );
+                    },
+                  ),
                 );
               },
             );

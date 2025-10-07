@@ -3,20 +3,28 @@ import 'package:project/pages/auth/login_page.dart';
 import 'package:project/pages/home/job_list_page.dart';
 import 'package:project/services/shared_preference_service.dart';
 
-// Conditional import for database initialization
-// This ensures that 'dart:io' (and sqflite_common_ffi) is only included
-// when building for non-web platforms.
 import 'package:project/database/database_initializer.dart'
 if (dart.library.html) 'package:project/database/database_initializer_stub.dart';
 
-
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  initializeDatabaseFactory();
 
-  // Call the platform-specific initialization function
-  initializeDatabaseFactory(); // This function will be defined by the correct import
+  await _createDemoUser();
 
   runApp(const MyApp());
+}
+
+Future<void> _createDemoUser() async {
+  final prefs = SharedPreferenceService();
+  final email = await prefs.getCurrentUserEmail();
+
+  if (email == null) {
+    await prefs.setCurrentUserEmail('demo@gmail.com');
+    await prefs.setCurrentUsername('Demo User');
+    await prefs.setLoggedIn(false);
+    debugPrint('Demo user created: demo@gmail.com / 123456');
+  }
 }
 
 class MyApp extends StatefulWidget {
@@ -49,9 +57,7 @@ class _MyAppState extends State<MyApp> {
     if (_isLoading) {
       return const MaterialApp(
         home: Scaffold(
-          body: Center(
-            child: CircularProgressIndicator(),
-          ),
+          body: Center(child: CircularProgressIndicator()),
         ),
       );
     }
@@ -61,26 +67,12 @@ class _MyAppState extends State<MyApp> {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.blue,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.blueAccent,
           foregroundColor: Colors.white,
-          elevation: 4,
-          titleTextStyle: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blueAccent,
-            foregroundColor: Colors.white,
-            textStyle: const TextStyle(fontWeight: FontWeight.bold),
-          ),
         ),
       ),
-      home: _isLoggedIn ? const JobListPage() : const JobListPage(),
+      home: _isLoggedIn ? const JobListPage() : const LoginPage(),
     );
   }
 }

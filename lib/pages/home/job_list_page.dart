@@ -36,7 +36,7 @@ class _JobListPageState extends State<JobListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Job Listings'),
+        title: const Text('Job List'),
         actions: [
           IconButton(
             icon: const Icon(Icons.person),
@@ -48,7 +48,17 @@ class _JobListPageState extends State<JobListPage> {
           ),
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: _logout,
+            onPressed: () async {
+              final prefs = SharedPreferenceService();
+              await prefs.clearUserData();
+              if (context.mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginPage()),
+                      (route) => false,
+                );
+              }
+            },
           ),
         ],
       ),

@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:project/database/database_helper.dart';
+import 'package:project/services/shared_preference_service.dart';
 import 'package:project/pages/job_details/job_details_page.dart';
 import 'package:project/widgets/profile_list_item.dart';
 
 class SavedJobsPage extends StatefulWidget {
   final int userId;
-
   const SavedJobsPage({super.key, required this.userId});
 
   @override
@@ -14,7 +13,7 @@ class SavedJobsPage extends StatefulWidget {
 
 class _SavedJobsPageState extends State<SavedJobsPage> {
   late Future<List<Map<String, dynamic>>> _savedJobsFuture;
-  final DatabaseHelper _dbHelper = DatabaseHelper();
+  final SharedPreferenceService _prefsService = SharedPreferenceService();
 
   @override
   void initState() {
@@ -24,16 +23,16 @@ class _SavedJobsPageState extends State<SavedJobsPage> {
 
   void _loadSavedJobs() {
     setState(() {
-      _savedJobsFuture = _dbHelper.getSavedJobs(widget.userId);
+      _savedJobsFuture = _prefsService.getSavedJobs(widget.userId);
     });
   }
 
   void _unSaveJob(String jobId) async {
-    await _dbHelper.deleteSavedJob(widget.userId, jobId);
+    await _prefsService.unsaveJob(widget.userId, jobId);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Job unsaved.')),
     );
-    _loadSavedJobs(); // Refresh the list
+    _loadSavedJobs();
   }
 
   @override
@@ -57,7 +56,7 @@ class _SavedJobsPageState extends State<SavedJobsPage> {
               itemBuilder: (context, index) {
                 final job = snapshot.data![index];
                 return Dismissible(
-                  key: Key(job['jobId'].toString()), // Unique key for Dismissible
+                  key: Key(job['jobId'].toString()),
                   direction: DismissDirection.endToStart,
                   onDismissed: (direction) {
                     _unSaveJob(job['jobId'].toString());
@@ -69,15 +68,15 @@ class _SavedJobsPageState extends State<SavedJobsPage> {
                     child: const Icon(Icons.delete, color: Colors.white),
                   ),
                   child: ProfileListItem(
-                    title: job['jobTitle'],
-                    subtitle: '${job['companyName']} - ${job['location']} - ${job['salary']}',
-                    imageUrl: job['imageUrl'] ?? 'https://via.placeholder.com/150', // Use stored image or placeholder
+                    title: job['jobTitle'] ?? 'No Title',
+                    subtitle: '${job['companyName'] ?? ''} - ${job['jobLocation'] ?? ''}',
+                    imageUrl: job['imageUrl'],
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (context) => JobDetailsPage(jobId: int.parse(job['jobId'])),
                         ),
-                      ).then((_) => _loadSavedJobs()); // Refresh when returning
+                      ).then((_) => _loadSavedJobs());
                     },
                   ),
                 );

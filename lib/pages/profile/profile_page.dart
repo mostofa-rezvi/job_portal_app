@@ -104,7 +104,6 @@ class _ProfilePageState extends State<ProfilePage> {
                 }
               },
             ),
-            // Add more profile options if needed
           ],
         ),
       ),

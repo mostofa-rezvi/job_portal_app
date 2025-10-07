@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:project/api/job_api_service.dart';
-import 'package:project/database/database_helper.dart';
 import 'package:project/models/applied_job.dart';
 import 'package:project/models/job.dart';
 import 'package:project/services/shared_preference_service.dart';
@@ -8,7 +7,6 @@ import 'package:intl/intl.dart';
 
 class JobDetailsPage extends StatefulWidget {
   final int jobId;
-
   const JobDetailsPage({super.key, required this.jobId});
 
   @override
@@ -18,12 +16,12 @@ class JobDetailsPage extends StatefulWidget {
 class _JobDetailsPageState extends State<JobDetailsPage> {
   late Future<Job> _jobDetailsFuture;
   final JobApiService _jobApiService = JobApiService();
-  final DatabaseHelper _dbHelper = DatabaseHelper();
   final SharedPreferenceService _prefsService = SharedPreferenceService();
 
   bool _isJobSaved = false;
   int? _currentUserId;
   bool _isApplied = false;
+  bool _isLoadingStatus = true;
 
   @override
   void initState() {
@@ -35,10 +33,10 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
   Future<void> _loadUserIdAndCheckStatus() async {
     _currentUserId = await _prefsService.getCurrentUserId();
     if (_currentUserId != null) {
-      _isJobSaved = await _dbHelper.isJobSaved(_currentUserId!, widget.jobId.toString());
-      _isApplied = await _dbHelper.isJobApplied(_currentUserId!, widget.jobId.toString());
+      _isJobSaved = await _prefsService.isJobSaved(_currentUserId!, widget.jobId.toString());
+      _isApplied = await _prefsService.isJobApplied(_currentUserId!, widget.jobId.toString());
     }
-    setState(() {}); // Rebuild to update button states
+    setState(() { _isLoadingStatus = false; });
   }
 
   Future<void> _applyForJob(Job job) async {
@@ -49,43 +47,24 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
       return;
     }
 
-    if (_isApplied) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You have already applied for this job.')),
-      );
-      return;
-    }
+    if (_isApplied) return;
 
     AppliedJob appliedJob = AppliedJob(
       userId: _currentUserId!,
-      jobId: job.id.toString(), // Store as string
+      jobId: job.id.toString(),
       jobTitle: job.title,
       companyName: job.companyName,
       jobLocation: job.location,
       salary: job.salary,
-      appliedDate: DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()),
+      appliedDate: DateFormat('yyyy-MM-dd').format(DateTime.now()),
       imageUrl: job.imageUrl,
     );
 
-    try {
-      int result = await _dbHelper.insertAppliedJob(appliedJob);
-      if (result > 0) {
-        setState(() {
-          _isApplied = true;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Job applied successfully!')),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to apply. You might have already applied.')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error applying for job: $e')),
-      );
-    }
+    await _prefsService.applyForJob(_currentUserId!, appliedJob);
+    setState(() => _isApplied = true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Job applied successfully!')),
+    );
   }
 
   Future<void> _toggleSaveJob(Job job) async {
@@ -96,38 +75,18 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
       return;
     }
 
-    try {
-      if (_isJobSaved) {
-        // Unsave job
-        await _dbHelper.deleteSavedJob(_currentUserId!, job.id.toString());
-        setState(() {
-          _isJobSaved = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Job unsaved.')),
-        );
-      } else {
-        // Save job
-        int result = await _dbHelper.insertSavedJob(job.toSavedJobMap(_currentUserId!));
-        if (result > 0) {
-          setState(() {
-            _isJobSaved = true;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Job saved successfully!')),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Job already saved.')),
-          );
-        }
-
-      }
-    } catch (e) {
+    if (_isJobSaved) {
+      await _prefsService.unsaveJob(_currentUserId!, job.id.toString());
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving/unsaving job: $e')),
+        const SnackBar(content: Text('Job unsaved.')),
+      );
+    } else {
+      await _prefsService.saveJob(_currentUserId!, job);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Job saved successfully!')),
       );
     }
+    setState(() => _isJobSaved = !_isJobSaved);
   }
 
   @override
@@ -136,21 +95,22 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
       appBar: AppBar(
         title: const Text('Job Details'),
         actions: [
-          FutureBuilder<Job>(
-            future: _jobDetailsFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
-                return IconButton(
-                  icon: Icon(
-                    _isJobSaved ? Icons.bookmark : Icons.bookmark_border,
-                    color: _isJobSaved ? Colors.yellow[700] : null,
-                  ),
-                  onPressed: () => _toggleSaveJob(snapshot.data!),
-                );
-              }
-              return Container(); // Or a disabled icon
-            },
-          ),
+          if (!_isLoadingStatus)
+            FutureBuilder<Job>(
+              future: _jobDetailsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.hasData) {
+                  return IconButton(
+                    icon: Icon(
+                      _isJobSaved ? Icons.bookmark : Icons.bookmark_border,
+                      color: _isJobSaved ? Colors.amber : null,
+                    ),
+                    onPressed: () => _toggleSaveJob(snapshot.data!),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
         ],
       ),
       body: FutureBuilder<Job>(
@@ -173,7 +133,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12.0),
                       child: Image.network(
-                        job.imageUrl, // Now `imageUrl` is defined
+                        job.imageUrl,
                         height: 180,
                         width: double.infinity,
                         fit: BoxFit.cover,
@@ -183,69 +143,29 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  Text(
-                    job.title,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  Text(job.title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
-                  Text(
-                    job.companyName,
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Icon(Icons.location_on, size: 20, color: Colors.grey[600]),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          job.location,
-                          style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                        ),
-                      ),
-                      const SizedBox(width: 24),
-                      Icon(Icons.monetization_on, size: 20, color: Colors.grey[600]),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          job.salary,
-                          style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                        ),
-                      ),
-                    ],
-                  ),
+                  Text(job.companyName, style: TextStyle(fontSize: 18, color: Colors.grey[700])),
                   const Divider(height: 32),
-                  const Text(
-                    'Job Description',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  const Text('Job Description', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
-                  Text(
-                    job.description,
-                    style: const TextStyle(fontSize: 16, height: 1.5),
-                  ),
+                  Text(job.description, style: const TextStyle(fontSize: 16, height: 1.5)),
                   const SizedBox(height: 30),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: _isApplied ? null : () => _applyForJob(job),
-                      icon: _isApplied ? const Icon(Icons.check_circle_outline) : const Icon(Icons.send),
-                      label: Text(_isApplied ? 'Applied' : 'Apply Now', style: const TextStyle(fontSize: 18)),
+                      onPressed: _isApplied || _isLoadingStatus ? null : () => _applyForJob(job),
+                      icon: _isApplied ? const Icon(Icons.check_circle) : const Icon(Icons.send),
+                      label: Text(_isApplied ? 'Applied' : 'Apply Now'),
                       style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        foregroundColor: Colors.white,
+                        backgroundColor: _isApplied ? Colors.grey : Theme.of(context).primaryColor,
+                        disabledForegroundColor: Colors.white70,
+                        disabledBackgroundColor: Colors.grey.shade400,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        backgroundColor: _isApplied ? Colors.grey : Theme.of(context).primaryColor,
                       ),
                     ),
                   ),

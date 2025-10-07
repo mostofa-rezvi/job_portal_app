@@ -63,9 +63,10 @@ class JobCard extends StatelessWidget {
                 alignment: Alignment.bottomRight,
                 child: ElevatedButton(
                   onPressed: () {
-                    // This will be handled in JobDetailsPage or a direct apply for simplicity
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Apply button clicked for ${job.title}')),
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => JobDetailsPage(jobId: job.id),
+                      ),
                     );
                   },
                   child: const Text('Apply Now'),

@@ -1,8 +1,13 @@
-// lib/database/database_initializer.dart
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 
 void initializeDatabaseFactory() {
-  // Initialize FFI for desktop platforms
-  sqfliteFfiInit();
-  databaseFactory = databaseFactoryFfi;
+  if (identical(0, 0.0)) {
+    databaseFactory = databaseFactoryFfiWeb;
+    print('DEBUG: Initializing database factory for WEB (IndexedDB)');
+  } else {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+    print('DEBUG: Initializing database factory for MOBILE/DESKTOP (FFI)');
+  }
 }

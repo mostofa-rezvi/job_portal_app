@@ -7,7 +7,7 @@ class JobApiService {
 
   Future<List<Job>> fetchJobs() async {
     try {
-      final response = await http.get(Uri.parse('$_baseUrl?limit=20')); // Limiting for demo
+      final response = await http.get(Uri.parse('$_baseUrl?limit=20'));
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
