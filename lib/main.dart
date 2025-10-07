@@ -9,22 +9,7 @@ if (dart.library.html) 'package:project/database/database_initializer_stub.dart'
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   initializeDatabaseFactory();
-
-  await _createDemoUser();
-
   runApp(const MyApp());
-}
-
-Future<void> _createDemoUser() async {
-  final prefs = SharedPreferenceService();
-  final email = await prefs.getCurrentUserEmail();
-
-  if (email == null) {
-    await prefs.setCurrentUserEmail('demo@gmail.com');
-    await prefs.setCurrentUsername('Demo User');
-    await prefs.setLoggedIn(false);
-    debugPrint('Demo user created: demo@gmail.com / 123456');
-  }
 }
 
 class MyApp extends StatefulWidget {

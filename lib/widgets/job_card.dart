@@ -35,26 +35,31 @@ class JobCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 job.companyName,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[700],
-                ),
+                style: TextStyle(fontSize: 16, color: Colors.grey[700]),
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
                   Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
                   const SizedBox(width: 4),
-                  Text(
-                    job.location,
-                    style: TextStyle(color: Colors.grey[600]),
+                  Expanded(
+                    child: Text(
+                      job.location,
+                      style: TextStyle(color: Colors.grey[600]),
+                    ),
                   ),
                   const SizedBox(width: 16),
-                  Icon(Icons.monetization_on, size: 16, color: Colors.grey[600]),
+                  Icon(
+                    Icons.monetization_on,
+                    size: 16,
+                    color: Colors.grey[600],
+                  ),
                   const SizedBox(width: 4),
-                  Text(
-                    job.salary,
-                    style: TextStyle(color: Colors.grey[600]),
+                  Expanded(
+                    child: Text(
+                      job.salary,
+                      style: TextStyle(color: Colors.grey[600]),
+                    ),
                   ),
                 ],
               ),
