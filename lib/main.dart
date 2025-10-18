@@ -37,27 +37,32 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
+  // @override
+  // Widget build(BuildContext context) {
+  //   if (_isLoading) {
+  //     return const MaterialApp(
+  //       home: Scaffold(
+  //         body: Center(child: CircularProgressIndicator()),
+  //       ),
+  //     );
+  //   }
+  //
+  //   return MaterialApp(
+  //     title: 'Job Portal',
+  //     debugShowCheckedModeBanner: false,
+  //     theme: ThemeData(
+  //       primarySwatch: Colors.blue,
+  //       appBarTheme: const AppBarTheme(
+  //         backgroundColor: Colors.blueAccent,
+  //         foregroundColor: Colors.white,
+  //       ),
+  //     ),
+  //     home: _isLoggedIn ? const JobListPage() : const LoginPage(),
+  //   );
+  // }
+
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const MaterialApp(
-        home: Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
-      );
-    }
-
-    return MaterialApp(
-      title: 'Job Portal',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.blueAccent,
-          foregroundColor: Colors.white,
-        ),
-      ),
-      home: _isLoggedIn ? const JobListPage() : const LoginPage(),
-    );
+    return const MaterialApp(home: LoginPage());
   }
 }
